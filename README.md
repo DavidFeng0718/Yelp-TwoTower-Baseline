@@ -252,15 +252,211 @@ During the inference, it will compute the user embedding and compute dot product
 
 ## Loss Function & Training Strategy
 
-The goal of training is to align user and item embeddings such that:
-- Positive pairs have higher similarity scores
+The objective of the Two-Tower model is to learn user embeddings u and item embeddings v such that positive interactions receive higher matching scores than negative ones.
 
-So: ```score(u, i⁺) > score(u, i⁻)```
-- i⁺ = positively interacted item
-- i⁻ = negative item
+```math
+s(u, v) = uᵀ v
+```
 
-The model uses a binary objective
-```L = BCEWithLogitsLoss(score, label)```
+I consider two possible loss functions:
 
-The score before sigmoid is:
-```score(u, i) = uᵀ i```
+### 1 Loss function a: Binary Cross-Entropy Loss
+
+The raw score is mapped to a probability via the sigmoid function:
+
+$$
+\hat{y} = \sigma(u^T v) = \frac{1}{1 + e^{-u^T v}}
+$$
+
+The Binary Cross-Entropy loss is defined as:
+
+
+$$
+L_{BCE} =
+y \log(\sigma(u^T v))
+(1 - y)\log(1 - \sigma(u^T v))
+$$
+
+### 2 Bayesian Personalized Ranking (BPR) Loss
+
+BPR loss is defined as:
+
+$$
+s(u, v^+) > s(u, v^-)
+$$
+
+BPR encourages:
+
+- The positive item score to be larger than the negative item score
+
+- Maximization of the margin between positive and negative items
+
+## Training Flow
+
+### Step 1: Prepare Input Batch
+
+For each mini-batch, we sample:
+
+- User IDs
+
+- Item features
+
+- Interaction labels (for BCE)
+
+- (User, positive item, negative item) triples (for BPR)
+
+### Step2: Forward Pass
+
+Compute User Embedding
+
+$$
+u = f_u(\text{user_id})
+$$
+
+The User Tower maps the user ID into a dense embedding vector.
+
+Compute Item Embedding
+
+$$
+v = f_v(\text{item_features})
+$$
+
+The Item Tower maps item features into an embedding vector.
+
+### Step3: Compute Matching Score 
+For BCE:
+$$
+s = u^Tv
+$$
+For BPR:
+$$
+s^+ = u^Tv^+
+$$
+$$
+s^-=u^Tv^-
+$$
+
+### Step4: Compute Loss
+
+Apply sigmoid:
+
+$$
+\hat{y} = \sigma(s)
+$$
+
+Compute binary cross-entropy:
+
+$$
+L = - y \log(\hat{y}) - (1 - y)\log(1 - \hat{y})
+$$
+
+BPR Case
+
+For a user $u$, a positive item $v^+$ and a negative item $v^-$:
+
+Compute score difference:
+
+$$
+\Delta = s^+ - s^- = u^T v^+ - u^T v^-
+$$
+
+Apply sigmoid and log:
+
+$$
+L = - \log\left(\sigma(\Delta)\right)
+$$
+
+### Step5: Backpropagation
+
+After computing the loss, gradients are calculated with respect to all learnable parameters:
+
+$$
+\frac{\partial L}{\partial \theta}
+$$
+
+Backpropagation flows through the following components:
+
+1. Dot product similarity:
+$$
+s = u^T v
+$$
+
+2. Item Tower network
+
+3. User Tower network
+
+All parameters are updated using the Adam optimizer:
+
+$$
+\theta \leftarrow \theta - \eta \cdot \nabla_{\theta} L
+$$
+
+where:
+- $\eta$ is the learning rate
+- $\nabla_{\theta} L$ is the gradient of the loss with respect to parameters
+
+---
+
+### Step6: Iterative Optimization
+
+The above steps are repeated for:
+
+- Every mini-batch
+- Every epoch
+
+Training continues until:
+
+- Convergence of validation loss
+- Or reaching the predefined number of epochs
+
+
+### Summary
+
+```text
+Input Batch
+   ↓
+User Tower → u
+Item Tower → v
+   ↓
+Dot Product
+   ↓
+Loss Computation
+   ↓
+Backpropagation
+   ↓
+Parameter Update
+```
+## Evaluation Metrics
+
+To evaluate retrieval performance, we use ranking-based metrics:
+
+### 1. Recall@K
+
+$$
+Recall@K = \frac{|Relevant \cap TopK|}{|Relevant|}
+$$
+
+Measures how many relevant items are retrieved within Top-K.
+
+### 2. HitRate@K
+
+$$
+HitRate@K =
+\begin{cases}
+1 & \text{if at least one relevant item in TopK} \\
+0 & \text{otherwise}
+\end{cases}
+$$
+
+### 3. Precision@K
+
+$$
+Precision@K = \frac{|Relevant \cap TopK|}{K}
+$$
+
+## Experimental Results
+
+| Metric | K=10   |
+|--------|--------|
+| Recall@10 | 0.0154 |
+| NDCG@10 | 0.0230  |
