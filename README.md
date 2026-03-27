@@ -9,17 +9,46 @@ This project focuses on scalable embedding-based retrieval using a dual-encoder 
 
 ## Overview
 
-This repository implements a Two-Tower architecture for user-item matching.
+### Project Overview
 
-The model learns:
-
-- A user embedding tower
-- An item embedding tower
-
-The similarity between user and item embeddings (dot product) determines recommendation scores.
+This project builds a baseline personalized restaurant recommendation system using a Two-Tower architecture, with additional geographic features to improve real-world relevance.
 
 ---
 
+### Motivation
+
+Most recommendation systems rely only on user-item interactions (e.g., ratings).  
+This project explores whether incorporating geographic context can improve recommendation quality.
+
+---
+
+### Method
+
+- Two-Tower model (User Tower + Item Tower)
+- Dot-product similarity for retrieval
+- Integrated OpenStreetMap (OSM) features:
+  - POIs
+  - Roads / transportation
+  - Land use / buildings
+- Multi-scale spatial features (100m / 200m / 500m)
+
+---
+
+### Current Progress
+
+- Built data pipeline from Yelp dataset  
+- Engineered geo features using OSM + geopandas  
+- Implemented Two-Tower baseline (PyTorch)  
+- Used BPR loss for training  
+- Evaluated with AUC / Recall@K  
+
+---
+
+### Goal
+
+Establish a baseline system and evaluate whether geographic features improve recommendation performance.
+
+---
 ##  Two-Tower Recommendation System 
     project/
     │
@@ -78,6 +107,9 @@ jupyter notebook TwoTowerMethodOptimized.ipynb
 ```
 
 ---
+
+
+
 
 # License
 MIT License
